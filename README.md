@@ -1,2 +1,2 @@
-# AddressFinderByTown
-Find address of a town using bing maps api
+# AddressFinderByRegion
+Find address of a region using bing maps api

@@ -1,2 +1,2 @@
-# AddressFinderByRegion
-Find address of a region using bing maps api
+# AddressFinder
+Find address in a province using bing maps api

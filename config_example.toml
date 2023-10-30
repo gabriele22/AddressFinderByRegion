@@ -1,0 +1,16 @@
+#chiave per accedere alle mappe bing
+api_key = "<yout_api_key>"
+
+#sito da cui effettuare le richieste
+bing_url = "http://dev.virtualearth.net/REST/v1/Locations/"
+
+#dimensione del lato dell'area di ricerca (in km) 
+radius_search_area = 30
+
+#numero di punti casuali generati all'interno dell'area di ricerca 
+#aumentanto il numero si hanno più possibilità di trovare numeri civici ma aumenteranno anche le richieste a bing mappe
+search_precision = 9000
+
+
+#numero di processi che lancieranno le richieste in parallelo 
+num_threads = 3

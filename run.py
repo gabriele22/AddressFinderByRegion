@@ -149,7 +149,7 @@ def get_address_by_lat_and_long(api_key_bing, url, lat, lon):
         # Estraggo i dati JSON dalla risposta inversa
         try:
             data = response.json()
-            data_status_code =  data["statusCode"]
+            data_status_code = data["statusCode"]
         except Exception as err:
             print(f'{err=}')
         
@@ -172,25 +172,27 @@ def get_address_by_lat_and_long(api_key_bing, url, lat, lon):
                 list_of_results.append( ( regione, provincia, comune, indirizzo_completo, indirizzo_e_numero_civico, numero_civico, coordinate))
         else:
             #print(f"Non sono stati trovati risultati validi, la richiesta alla mappe bing ha risposto con stato={data_status_code}")
-            return data_status_code
+            return data_status_code if data_status_code else 500
     else:
         #print(f"Errore nella richiesta di recupero indirizzi: {response.status_code}")
-        return data_status_code
+        return data_status_code if data_status_code else 500
 
 
     return list_of_results
 
 
-def find_only_address_of_privince_and_with_number(api_key_bing,url,
+
+
+def find_only_address_in_town_and_with_number(api_key_bing,url,
                                                   points_for_request,
-                                                  province_ref,
+                                                  town_ref,
                                                   provinces,
                                                   towns,
                                                   address_complete,
                                                   address_lite,
                                                   latitudes,
                                                   longitudes,
-                                                  response_errors ):
+                                                  response_errors ):  
     '''filter response to get only desired province and only point with number, also add response details to specific list'''
     with IncrementalBar('recupero indirizzi...', max=len(points_for_request)) as p_bar:
         for item_lat, item_lng in points_for_request:
@@ -198,8 +200,8 @@ def find_only_address_of_privince_and_with_number(api_key_bing,url,
             address_response = get_address_by_lat_and_long(api_key_bing,url, item_lat,  item_lng)
 
             if (isinstance(address_response, list) and len(address_response)>0):
-                for ( _, provincia_resp, comune_resp,  indirizzo_completo_resp, indirizzo_e_numero_civico_resp, numero_civico_resp, coordinate_resp) in address_response:
-                    if indirizzo_completo_resp and provincia_resp == province_ref and len(numero_civico_resp)>0 and numero_civico_resp[0] > 0 :
+                for (_ , provincia_resp, comune_resp, indirizzo_completo_resp, indirizzo_e_numero_civico_resp, numero_civico_resp, coordinate_resp) in address_response:
+                    if indirizzo_completo_resp and comune_resp == town_ref and len(numero_civico_resp) > 0 and numero_civico_resp[0] > 0 :
                         provinces.append(provincia_resp)
                         towns.append(comune_resp)
                         address_complete.append(indirizzo_completo_resp)
@@ -212,7 +214,7 @@ def find_only_address_of_privince_and_with_number(api_key_bing,url,
 
             p_bar.next()
 
-def recover_address_number_from_province_name ( api_key_bing, url,  province_name, radius = 10, precision=10, num_threads=2 ):
+def recover_address_in_a_town( api_key_bing, url, town_req, radius = 10, precision=10, num_threads=2 ):
     '''retrieve ddress_number from a city name using bing maps api'''
 
     provinces = []
@@ -225,7 +227,7 @@ def recover_address_number_from_province_name ( api_key_bing, url,  province_nam
 
     # Definisco i parametri della richiesta
     params = {
-        "query": province_name,
+        "locality": town_req,
         "key": api_key_bing
     }
 
@@ -245,6 +247,7 @@ def recover_address_number_from_province_name ( api_key_bing, url,  province_nam
 
         # Controllo se ci sono risultati validi
         if data_status_code == 200 and data["resourceSets"][0]["estimatedTotal"] > 0:
+            
             # Estraggo il primo risultato (il più rilevante)
             result = data["resourceSets"][0]["resources"][0]
 
@@ -253,36 +256,36 @@ def recover_address_number_from_province_name ( api_key_bing, url,  province_nam
             lng = result["point"]["coordinates"][1]
 
             # Stampo le coordinate geografiche della regione
-            print(f"Le coordinate geografiche di riferimento usate per {province_name} sono: {lat}, {lng}")
+            print(f"Le coordinate geografiche di riferimento usate per {town_req} sono: {lat}, {lng}")
             points = []
-            #recupero la provincie_ref per filtare successivamente eventuali punti di altre province
-            (_, provincie_ref,  _,  _, _, _, _ ) = get_address_by_lat_and_long(api_key_bing,url, lat, lng)[0]
+            #recupero il admmin_district_ref della regione per filtare successivamente eventuali punti di altri regioni
+            (_, _, town_ref,  _, _, _, _ ) = get_address_by_lat_and_long(api_key_bing,url,lat,lng)[0]
 
-            if provincie_ref:
-                points = get_rnd_point_on_circle_and_print_map(math.radians(lat),
-                                                math.radians(lng),
-                                                math.radians(radius),
-                                                precision)
+            if town_ref:
+                points = get_rnd_point_on_circle_and_print_map(
+                    math.radians(lat), math.radians(lng), math.radians(radius), precision)
+
 
                 user_ctrl =input('in base ai punti visualizzati sulla mappa nel browser, vuoi procedere con le richieste per ottenere gli indirizzi? (s/n)')
                 if(user_ctrl == 's' or user_ctrl == 'S'):
-                    #find_only_address_of_privince_and_with_number(api_key_bing,url, points, provincie_ref, provinces, towns, address_complete,address_lite, latitudes, longitueds )
                     diveded_points = list(more_itertools.chunked(points, len(points) // num_threads))
-
                     threads = list()
+
                     for sub_points in diveded_points:
-                        t = threading.Thread(target=find_only_address_of_privince_and_with_number,args=
-                                             (api_key_bing,
+                        t = threading.Thread(target=find_only_address_in_town_and_with_number,args=
+                                                (api_key_bing,
                                                 url,
                                                 sub_points,
-                                                provincie_ref,
+                                                town_ref,
                                                 provinces,
                                                 towns,
                                                 address_complete,
                                                 address_lite,
                                                 latitudes,
                                                 longitueds,
-                                                response_errors ))
+                                                response_errors )
+                                                )
+
                         threads.append(t)
                         t.start()
 
@@ -290,10 +293,10 @@ def recover_address_number_from_province_name ( api_key_bing, url,  province_nam
                         t.join()
 
             else:
-                print(f"Fallito recupero informazioni in {province_name}, codice risposta http: {data_status_code}")
+                print(f"Fallito recupero informazioni in {town_ref}, codice risposta http: {data_status_code}")                
         else:
             # Stampo un messaggio di errore se non ci sono risultati validi
-            print(f"Nessun risultato trovato in {province_name}")
+            print(f"Nessun risultato trovato in {town_ref}")
     else:
         # Stampo un messaggio di errore se la richiesta non è andata a buon fine
         print(f"Errore nella richiesta: {response.status_code}")
@@ -313,11 +316,13 @@ def recover_address_number_from_province_name ( api_key_bing, url,  province_nam
     df_address_region.drop_duplicates(inplace=True)
     # Stampo il numero dei risultati trovati
     if len(address_complete)> 0:
-        print(f"Trovati {len(address_complete)} numeri civici (senza duplicati) all'interno di un cerchio di raggio {radius*111} km con centro {province_name} ({lat}, {lng})")
+        print(f"Trovati {len(address_complete)} numeri civici (senza duplicati) all'interno di un cerchio di raggio {radius*111} km con centro {town_ref} ({lat}, {lng})")
 
     #rimozione indirizzi duplicati
     df_address_region.drop_duplicates(inplace=True)
+    df_address_region.sort_values(by=['Comune', 'Indirizzo completo'], inplace=True)
     return df_address_region
+
 
 def main():
     """ main """
@@ -330,19 +335,19 @@ def main():
     search_precision = data['search_precision']
     num_threads = data['num_threads']
 
-    province = input('Nome provinca: ')
+    town = input('Nome comune: ')
     radius = input('Raggio di ricerca(km): ')
     ## a kind of km approximation in degrees
     dimension_searc_area = int(radius)/111
     print(dimension_searc_area)
 
-    df_province = recover_address_number_from_province_name(api_key,base_bing_url,
-                                                            province,
+    df_town = recover_address_in_a_town(api_key,base_bing_url,
+                                                            town,
                                                             dimension_searc_area,
                                                             search_precision,
                                                             num_threads)
 
-    df_province.to_csv(f"Indirizzi_{province}.csv", sep=';', index=False, encoding='utf-8' )
+    df_town.to_csv(f"Indirizzi_{town}.csv", sep=';', index=False, encoding='utf-8' )
 
     sys.exit(0)
 

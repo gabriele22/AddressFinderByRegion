@@ -1,2 +1,2 @@
 # AddressFinder
-Find address in a province using bing maps api
+Find address in a town using bing maps api

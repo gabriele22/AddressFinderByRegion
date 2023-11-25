@@ -175,7 +175,7 @@ def get_address_by_lat_and_long(api_key_bing, url, lat, lon):
             return data_status_code if data_status_code else 500
     else:
         #print(f"Errore nella richiesta di recupero indirizzi: {response.status_code}")
-        return data_status_code if data_status_code else 500
+        return response.status_code if response.status_code else 500
 
 
     return list_of_results
